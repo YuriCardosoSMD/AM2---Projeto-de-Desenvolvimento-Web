@@ -1,9 +1,28 @@
 /**
  * ==========================================
- * PARTE 1: DADOS E ESTRUTURA (MODEL)
+ * IMAGENS POR TIPO DE LOCAL
  * ==========================================
  */
+const buildingImages = {
+    "Alice's House": "assets/house.png",
+    "Bob's House": "assets/house.png",
+    "Daria's House": "assets/house.png",
+    "Ernie's House": "assets/house.png",
+    "Grete's House": "assets/house.png",
 
+    "Cabin": "assets/cabin.png",
+    "Town Hall": "assets/townhall.png",
+    "Post Office": "assets/postoffice.png",
+    "Marketplace": "assets/marketplace.png",
+    "Shop": "assets/shop.png",
+    "Farm": "assets/house.png"  // pode escolher outra imagem se quiser
+};
+
+/**
+ * ==========================================
+ * PARTE 1: MODEL
+ * ==========================================
+ */
 const roads = [
     "Alice's House-Bob's House", "Alice's House-Cabin",
     "Alice's House-Post Office", "Bob's House-Town Hall",
@@ -31,7 +50,7 @@ const locations = {
 function buildGraph(edges) {
     let graph = Object.create(null);
     function addEdge(from, to) {
-        if (graph[from] == null) graph[from] = [to];
+        if (!graph[from]) graph[from] = [to];
         else graph[from].push(to);
     }
     for (let [from, to] of edges.map(r => r.split("-"))) {
@@ -45,10 +64,9 @@ const roadGraph = buildGraph(roads);
 
 /**
  * ==========================================
- * PARTE 2: ESTADO DO MUNDO (STATE)
+ * ESTADO IMUTÁVEL
  * ==========================================
  */
-
 class VillageState {
     constructor(place, parcels) {
         this.place = place;
@@ -56,15 +74,13 @@ class VillageState {
     }
 
     move(destination) {
-        if (!roadGraph[this.place].includes(destination)) {
-            return this;
-        } else {
-            let parcels = this.parcels.map(p => {
-                if (p.place != this.place) return p;
-                return {place: destination, address: p.address};
-            }).filter(p => p.place != p.address);
-            return new VillageState(destination, parcels);
-        }
+        if (!roadGraph[this.place].includes(destination)) return this;
+
+        let parcels = this.parcels
+            .map(p => p.place !== this.place ? p : { place: destination, address: p.address })
+            .filter(p => p.place !== p.address);
+
+        return new VillageState(destination, parcels);
     }
 }
 
@@ -73,7 +89,7 @@ VillageState.random = function(parcelCount = 5) {
     for (let i = 0; i < parcelCount; i++) {
         let address = randomPick(Object.keys(roadGraph));
         let place;
-        do { place = randomPick(Object.keys(roadGraph)); }
+        do place = randomPick(Object.keys(roadGraph));
         while (place == address);
         parcels.push({place, address});
     }
@@ -82,13 +98,11 @@ VillageState.random = function(parcelCount = 5) {
 
 /**
  * ==========================================
- * PARTE 3: ALGORITMOS DOS ROBÔS (AI)
+ * ROBÔS
  * ==========================================
  */
-
 function randomPick(array) {
-    let choice = Math.floor(Math.random() * array.length);
-    return array[choice];
+    return array[Math.floor(Math.random() * array.length)];
 }
 
 function randomRobot(state) {
@@ -96,14 +110,14 @@ function randomRobot(state) {
 }
 
 const mailRoute = [
-    "Alice's House", "Cabin", "Alice's House", "Bob's House",
-    "Town Hall", "Daria's House", "Ernie's House",
-    "Grete's House", "Shop", "Grete's House", "Farm",
-    "Marketplace", "Post Office"
+    "Alice's House","Cabin","Alice's House","Bob's House",
+    "Town Hall","Daria's House","Ernie's House",
+    "Grete's House","Shop","Grete's House","Farm",
+    "Marketplace","Post Office"
 ];
 
 function routeRobot(state, memory) {
-    if (memory.length == 0) memory = mailRoute;
+    if (memory.length === 0) memory = mailRoute;
     return {direction: memory[0], memory: memory.slice(1)};
 }
 
@@ -112,8 +126,8 @@ function findRoute(graph, from, to) {
     for (let i = 0; i < work.length; i++) {
         let {at, route} = work[i];
         for (let place of graph[at]) {
-            if (place == to) return route.concat(place);
-            if (!work.some(w => w.at == place)) {
+            if (place === to) return route.concat(place);
+            if (!work.some(w => w.at === place)) {
                 work.push({at: place, route: route.concat(place)});
             }
         }
@@ -121,23 +135,20 @@ function findRoute(graph, from, to) {
 }
 
 function goalOrientedRobot({place, parcels}, route) {
-    if (route.length == 0) {
+    if (route.length === 0) {
         let parcel = parcels[0];
-        if (parcel.place != place) {
-            route = findRoute(roadGraph, place, parcel.place);
-        } else {
-            route = findRoute(roadGraph, place, parcel.address);
-        }
+        route = parcel.place !== place
+            ? findRoute(roadGraph, place, parcel.place)
+            : findRoute(roadGraph, place, parcel.address);
     }
     return {direction: route[0], memory: route.slice(1)};
 }
 
 /**
  * ==========================================
- * PARTE 4: CONTROLE
+ * CONTROLE E SIMULAÇÃO
  * ==========================================
  */
-
 let currentState = null;
 let currentRobot = null;
 let robotMemory = [];
@@ -147,59 +158,55 @@ let animationSpeed = 800;
 
 const canvas = document.getElementById('villageCanvas');
 const ctx = canvas.getContext('2d');
-const logContainer = document.getElementById('logContainer');
+const logList = document.getElementById('logList');
 
-/* === TEMA 3: Carregamento de imagens PNG === */
 const robotImg = new Image();
-robotImg.src = "robot.png";
+robotImg.src = "assets/robot.png";
 
 const parcelImg = new Image();
-parcelImg.src = "parcel.png";
+parcelImg.src = "assets/parcel.png";
 
 function init() {
     currentState = VillageState.random();
     drawVillage(currentState);
     updateStatusUI();
-    logAction("Simulação pronta. Escolha um robô e clique em Iniciar.");
+    logAction("Simulação pronta. Escolha um robô e clique em Iniciar.", "move");
 }
 
 function startSimulation() {
     if (simulationTimeout) return;
 
-    const robotType = document.getElementById('robotSelect').value;
-
-    if (robotType === 'random') currentRobot = randomRobot;
-    else if (robotType === 'route') currentRobot = routeRobot;
-    else currentRobot = goalOrientedRobot;
+    const type = document.getElementById("robotSelect").value;
+    currentRobot = type === "random" ? randomRobot :
+                   type === "route" ? routeRobot :
+                   goalOrientedRobot;
 
     robotMemory = [];
     runTurn();
 }
 
 function runTurn() {
-    if (currentState.parcels.length == 0) {
-        logAction(`<strong>FIM!</strong> Todas as entregas concluídas em ${turnCount} passos.`);
+    if (currentState.parcels.length === 0) {
+        logAction(`Todas as entregas concluídas em ${turnCount} passos.`, "delivery");
         simulationTimeout = null;
         return;
     }
 
     let action = currentRobot(currentState, robotMemory);
+    let next = currentState.move(action.direction);
 
-    let nextState = currentState.move(action.direction);
-
-    if(nextState.parcels.length < currentState.parcels.length) {
-        logAction(`📦 Entrega realizada em: ${action.direction}`);
+    if (next.parcels.length < currentState.parcels.length) {
+        logAction(`Entrega realizada em: ${action.direction}`, "delivery");
     } else {
-        logAction(`Movendo para: ${action.direction}`);
+        logAction(`Movendo para: ${action.direction}`, "move");
     }
 
-    currentState = nextState;
+    currentState = next;
     robotMemory = action.memory;
     turnCount++;
 
     drawVillage(currentState);
     updateStatusUI();
-
     simulationTimeout = setTimeout(runTurn, animationSpeed);
 }
 
@@ -211,28 +218,37 @@ function stopSimulation() {
 function resetSimulation() {
     stopSimulation();
     turnCount = 0;
-    logContainer.innerHTML = '';
+    logList.innerHTML = "";
     init();
 }
 
 function updateStatusUI() {
-    document.getElementById('stepCount').innerText = turnCount;
-    document.getElementById('parcelCount').innerText = currentState.parcels.length;
-}
-
-function logAction(message) {
-    const div = document.createElement('div');
-    div.className = 'log-entry';
-    div.innerHTML = `Passo ${turnCount}: ${message}`;
-    logContainer.prepend(div);
+    document.getElementById("stepCount").innerText = turnCount;
+    document.getElementById("parcelCount").innerText = currentState.parcels.length;
 }
 
 /**
  * ==========================================
- * PARTE 5: CANVAS (TEMA 3 ALTERADO)
+ * LOG LISTA UL/LI
  * ==========================================
  */
+function logAction(message, type) {
+    const li = document.createElement("li");
 
+    let icon = type === "delivery" ? "📦" : "🚚";
+
+    li.classList.add(type === "delivery" ? "log-delivery" : "log-move");
+
+    li.textContent = `Passo ${turnCount}: ${icon} ${message}`;
+
+    logList.prepend(li);
+}
+
+/**
+ * ==========================================
+ * DESENHO DO CANVAS COM IMAGENS POR TIPO
+ * ==========================================
+ */
 function drawVillage(state) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -241,45 +257,37 @@ function drawVillage(state) {
     ctx.lineWidth = 4;
     for (let from in roadGraph) {
         for (let to of roadGraph[from]) {
-            if(locations[from] && locations[to]) {
-                ctx.beginPath();
-                ctx.moveTo(locations[from].x, locations[from].y);
-                ctx.lineTo(locations[to].x, locations[to].y);
-                ctx.stroke();
-            }
+            ctx.beginPath();
+            ctx.moveTo(locations[from].x, locations[from].y);
+            ctx.lineTo(locations[to].x, locations[to].y);
+            ctx.stroke();
         }
     }
 
-    // Locais
+    // Locais (AGORA COM IMAGENS)
     for (let loc in locations) {
         const {x, y} = locations[loc];
-        
-        ctx.fillStyle = "#3b82f6";
-        ctx.beginPath();
-        ctx.arc(x, y, 15, 0, Math.PI * 2);
-        ctx.fill();
+
+        const img = new Image();
+        img.src = buildingImages[loc] || "assets/house.png";
+
+        ctx.drawImage(img, x - 20, y - 20, 40, 40);
 
         ctx.fillStyle = "#000";
         ctx.font = "12px Arial";
         ctx.textAlign = "center";
-        ctx.fillText(loc, x, y - 25);
+        ctx.fillText(loc, x, y - 30);
     }
 
-    // ENCOMENDAS (Imagem PNG)
+    // Encomendas
     state.parcels.forEach((p, index) => {
-        if(locations[p.place]) {
-            const {x, y} = locations[p.place];
-            const offset = index * 20;
-            ctx.drawImage(parcelImg, x + 10 + offset, y + 5, 20, 20);
-        }
+        const {x, y} = locations[p.place];
+        ctx.drawImage(parcelImg, x + 10 + index * 20, y + 5, 20, 20);
     });
 
-    // ROBÔ (Imagem PNG)
+    // Robô
     const robotLoc = locations[state.place];
-    if(robotLoc) {
-        ctx.drawImage(robotImg, robotLoc.x - 25, robotLoc.y - 25, 50, 50);
-    }
+    ctx.drawImage(robotImg, robotLoc.x - 25, robotLoc.y - 25, 50, 50);
 }
 
-// Iniciar ao carregar
 init();
